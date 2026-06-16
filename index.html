@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard วิเคราะห์ข้อมูลการพ้นสภาพนักศึกษา | PSU Phuket</title>
+
+  <!-- ใช้ CDN ได้บน GitHub Pages ไม่ต้องมี Backend -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root{
+      --psu-teal:#33c0ca;
+      --psu-blue:#123c69;
+      --psu-navy:#0b2545;
+      --psu-orange:#ff9f1c;
+      --psu-pink:#f72585;
+      --soft:#f4fbfc;
+      --text:#172033;
+      --muted:#65758b;
+      --card:#ffffff;
+      --danger:#e63946;
+      --success:#2a9d8f;
+      --warning:#f77f00;
+      --shadow:0 16px 40px rgba(18,60,105,.10);
+      --radius:22px;
+    }
+    *{font-family:"Sarabun",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+    body{
+      background:
+        radial-gradient(circle at top left, rgba(51,192,202,.25), transparent 28%),
+        radial-gradient(circle at 90% 10%, rgba(247,37,133,.10), transparent 25%),
+        linear-gradient(180deg,#f7fcff 0%,#eef7fa 100%);
+      color:var(--text);
+      min-height:100vh;
+    }
+    .hero{
+      background:linear-gradient(135deg,var(--psu-navy),var(--psu-blue) 55%,#146b78);
+      color:#fff;
+      border-radius:0 0 36px 36px;
+      box-shadow:var(--shadow);
+      position:relative;
+      overflow:hidden;
+    }
+    .hero:after{
+      content:"";
+      position:absolute;
+      width:420px;
+      height:420px;
+      right:-120px;
+      top:-120px;
+      border-radius:50%;
+      background:rgba(255,255,255,.10);
+    }
+    .hero .badge{
+      background:rgba(255,255,255,.15);
+      border:1px solid rgba(255,255,255,.25);
+      color:#fff;
+      backdrop-filter:blur(10px);
+    }
+    .hero h1{font-weight:800; letter-spacing:-.5px;}
+    .section-title{
+      font-weight:800;
+      color:var(--psu-navy);
+      letter-spacing:-.2px;
+    }
+    .subtle{color:var(--muted);}
+    .kpi-card,.chart-card,.insight-card,.data-card{
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(18,60,105,.08);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      height:100%;
+    }
+    .kpi-card{
+      padding:22px;
+      position:relative;
+      overflow:hidden;
+    }
+    .kpi-card:before{
+      content:"";
+      position:absolute;
+      inset:0 auto 0 0;
+      width:7px;
+      background:var(--accent,var(--psu-teal));
+    }
+    .kpi-label{
+      color:var(--muted);
+      font-size:.95rem;
+      font-weight:600;
+    }
+    .kpi-value{
+      font-size:2.15rem;
+      font-weight:800;
+      color:var(--psu-navy);
+      line-height:1.05;
+    }
+    .kpi-note{
+      color:var(--muted);
+      font-size:.9rem;
+    }
+    .chart-card{
+      padding:20px;
+    }
+    .chart-wrap{
+      position:relative;
+      height:340px;
+      width:100%;
+    }
+    .chart-wrap.sm{height:300px;}
+    .mini-label{
+      font-size:.83rem;
+      color:#fff;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.18);
+      padding:.35rem .7rem;
+      border-radius:999px;
+    }
+    .form-control,.form-select{
+      border-radius:14px;
+      border-color:rgba(18,60,105,.16);
+    }
+    .btn-main{
+      background:var(--psu-blue);
+      color:#fff;
+      border-radius:14px;
+      font-weight:700;
+      border:none;
+    }
+    .btn-main:hover{background:var(--psu-navy);color:#fff;}
+    .btn-soft{
+      background:#e9f8fa;
+      color:var(--psu-blue);
+      border-radius:14px;
+      font-weight:700;
+      border:1px solid rgba(51,192,202,.35);
+    }
+    .btn-soft:hover{background:#d8f3f6;color:var(--psu-navy);}
+    .table thead th{
+      background:#eff9fb;
+      color:var(--psu-blue);
+      font-weight:800;
+      white-space:nowrap;
+    }
+    .table td,.table th{vertical-align:middle;}
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:.35rem;
+      padding:.35rem .65rem;
+      border-radius:999px;
+      font-size:.85rem;
+      font-weight:700;
+      background:#eef7fb;
+      color:var(--psu-blue);
+    }
+    .risk{
+      border-left:6px solid var(--danger);
+    }
+    .opportunity{
+      border-left:6px solid var(--success);
+    }
+    .warning-note{
+      border-left:6px solid var(--warning);
+    }
+    .insight-card{padding:20px;}
+    .insight-card h5{font-weight:800;color:var(--psu-navy);}
+    .footer-note{
+      color:var(--muted);
+      font-size:.9rem;
+    }
+    .tab-btn{
+      border:0;
+      background:transparent;
+      padding:.7rem 1rem;
+      border-radius:999px;
+      font-weight:800;
+      color:var(--muted);
+    }
+    .tab-btn.active{
+      background:var(--psu-blue);
+      color:#fff;
+      box-shadow:0 10px 24px rgba(18,60,105,.18);
+    }
+    .upload-box{
+      border:2px dashed rgba(51,192,202,.55);
+      background:#fbfeff;
+      border-radius:20px;
+      padding:18px;
+    }
+    code,pre{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+    }
+    pre{
+      background:#0b2545;
+      color:#e9f8fa;
+      padding:16px;
+      border-radius:18px;
+      overflow:auto;
+      font-size:.82rem;
+    }
+    @media (max-width:768px){
+      .hero{border-radius:0 0 24px 24px;}
+      .kpi-value{font-size:1.8rem;}
+      .chart-wrap{height:300px;}
+    }
+  </style>
+</head>
+
+<body>
+  <header class="hero py-4 py-lg-5 mb-4">
+    <div class="container position-relative">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+          <span class="badge rounded-pill px-3 py-2 mb-3">PSU Phuket | Student Status Analytics</span>
+          <h1 class="display-6 mb-3">Dashboard วิเคราะห์ข้อมูลการพ้นสภาพนักศึกษา</h1>
+          <p class="lead mb-3">
+            เปรียบเทียบแนวโน้มรายภาคการศึกษา วิเคราะห์สาเหตุ และสรุปประเด็นเพื่อสนับสนุนการตัดสินใจเชิงบริหาร
+          </p>
+          <div class="d-flex flex-wrap gap-2">
+            <span class="mini-label">ข้อมูลตั้งต้น: ปีการศึกษา 2566–2568</span>
+            <span class="mini-label">รายละเอียดล่าสุด: ภาค 2/2568</span>
+            <span class="mini-label">ข้อมูล ณ 15 มิถุนายน 2569</span>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="upload-box bg-white bg-opacity-10 border-white border-opacity-25">
+            <label class="form-label fw-bold text-white">อัปโหลด CSV เพื่อเปลี่ยนชุดข้อมูลแนวโน้ม</label>
+            <input class="form-control mb-2" type="file" id="csvFile" accept=".csv">
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-light btn-sm rounded-pill fw-bold" onclick="downloadSampleCSV()">ดาวน์โหลด CSV ตัวอย่าง</button>
+              <button class="btn btn-outline-light btn-sm rounded-pill fw-bold" onclick="resetData()">Reset ข้อมูลตั้งต้น</button>
+            </div>
+            <small class="d-block mt-2 text-white-50">
+              รองรับคอลัมน์ Year, Term1Count, Term2Count, Term1Rate, Term2Rate
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container pb-5">
+    <section class="mb-4">
+      <div class="d-flex justify-content-between align-items-end gap-3 flex-wrap mb-3">
+        <div>
+          <h2 class="section-title mb-1">Executive Snapshot</h2>
+          <p class="subtle mb-0">เปิดดูแล้วเห็นภาพรวมทันที: จำนวนรวม อัตรา แนวโน้ม และจุดเสี่ยง</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="tab-btn active" id="btnExecutive" onclick="scrollToSection('executive')">ภาพรวม</button>
+          <button class="tab-btn" id="btnCauses" onclick="scrollToSection('causes')">สาเหตุ</button>
+          <button class="tab-btn" id="btnData" onclick="scrollToSection('dataTable')">ตารางข้อมูล</button>
+        </div>
+      </div>
+
+      <div id="executive" class="row g-3">
+        <div class="col-md-6 col-xl-3">
+          <div class="kpi-card" style="--accent:var(--psu-teal)">
+            <div class="kpi-label">พ้นสภาพล่าสุด ภาค 2/2568</div>
+            <div class="kpi-value" id="kpiCurrentTotal">45 ราย</div>
+            <div class="kpi-note">ใช้เป็นฐานวิเคราะห์สาเหตุล่าสุด</div>
+          </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <div class="kpi-card" style="--accent:var(--psu-orange)">
+            <div class="kpi-label">อัตราพ้นสภาพ ภาค 2/2568</div>
+            <div class="kpi-value" id="kpiLatestRate">3.08%</div>
+            <div class="kpi-note" id="kpiLatestRateNote">เพิ่มจาก 2/2567 จำนวน 0.18 จุดร้อยละ</div>
+          </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <div class="kpi-card" style="--accent:var(--danger)">
+            <div class="kpi-label">จุดเสี่ยงสูงสุด 3 ปี</div>
+            <div class="kpi-value" id="kpiPeak">6.62%</div>
+            <div class="kpi-note" id="kpiPeakNote">ภาค 1/2568 สูงที่สุดในชุดข้อมูล</div>
+          </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <div class="kpi-card" style="--accent:var(--success)">
+            <div class="kpi-label">Pattern รายปี</div>
+            <div class="kpi-value" id="kpiPattern">T1 &gt; T2</div>
+            <div class="kpi-note">เทอม 1 สูงกว่าเทอม 2 ทุกปี</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-4">
+      <div class="row g-3">
+        <div class="col-lg-8">
+          <div class="chart-card">
+            <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2">
+              <div>
+                <h4 class="section-title h5 mb-1">แนวโน้มอัตราการพ้นสภาพรายภาคการศึกษา</h4>
+                <p class="subtle mb-0">เปรียบเทียบ % การพ้นสภาพระหว่างเทอม 1 และเทอม 2</p>
+              </div>
+              <span class="pill">หน่วย: %</span>
+            </div>
+            <div class="chart-wrap"><canvas id="rateTrendChart"></canvas></div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="chart-card">
+            <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2">
+              <div>
+                <h4 class="section-title h5 mb-1">ผลต่าง T1 - T2</h4>
+                <p class="subtle mb-0">ดูความห่างระหว่างสองภาคเรียน</p>
+              </div>
+              <span class="pill">Gap</span>
+            </div>
+            <div class="chart-wrap sm"><canvas id="gapChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-4">
+      <div class="row g-3">
+        <div class="col-lg-7">
+          <div class="chart-card">
+            <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2">
+              <div>
+                <h4 class="section-title h5 mb-1">จำนวนผู้พ้นสภาพรายปี</h4>
+                <p class="subtle mb-0">เปรียบเทียบจำนวนคนระหว่างเทอม 1 และเทอม 2</p>
+              </div>
+              <span class="pill">หน่วย: ราย</span>
+            </div>
+            <div class="chart-wrap"><canvas id="countChart"></canvas></div>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="insight-card h-100">
+            <h4 class="section-title h5 mb-3">สรุปผลการวิเคราะห์สำหรับผู้บริหาร</h4>
+            <div id="autoInsights" class="vstack gap-3"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="causes" class="mb-4">
+      <div class="d-flex justify-content-between align-items-end gap-3 flex-wrap mb-3">
+        <div>
+          <h2 class="section-title mb-1">Cause & Faculty Deep Dive: ภาค 2/2568</h2>
+          <p class="subtle mb-0">เจาะสาเหตุการพ้นสภาพล่าสุด เพื่อใช้กำหนดมาตรการเฉพาะกลุ่ม</p>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-5">
+          <div class="chart-card">
+            <h4 class="section-title h5 mb-1">สัดส่วนสาเหตุหลัก</h4>
+            <p class="subtle mb-0">ภาค 2/2568 รวม 45 ราย</p>
+            <div class="chart-wrap"><canvas id="causeChart"></canvas></div>
+          </div>
+        </div>
+        <div class="col-lg-7">
+          <div class="chart-card">
+            <h4 class="section-title h5 mb-1">จำแนกตามคณะ/วิทยาลัย และสาเหตุหลัก</h4>
+            <p class="subtle mb-0">ช่วยระบุพื้นที่ที่ควรติดตามเชิงรุก</p>
+            <div class="chart-wrap"><canvas id="facultyChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="chart-card">
+            <h4 class="section-title h5 mb-1">เหตุผลการลาออก</h4>
+            <p class="subtle mb-0">รวมเหตุผลที่ระบุไว้ 19 ราย และเพิ่ม “ไม่ระบุ/รอตรวจสอบ” 1 รายให้ครบยอดลาออก 20 ราย</p>
+            <div class="chart-wrap sm"><canvas id="resignChart"></canvas></div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="chart-card">
+            <h4 class="section-title h5 mb-1">เกณฑ์ผลการเรียนที่ทำให้ตกออก</h4>
+            <p class="subtle mb-0">กลุ่มเสี่ยงควรได้รับการติดตามตั้งแต่ปีแรกและช่วงรอพินิจ</p>
+            <div class="chart-wrap sm"><canvas id="academicChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-4">
+      <div class="row g-3">
+        <div class="col-lg-4">
+          <div class="insight-card risk">
+            <h5>ประเด็นเสี่ยง</h5>
+            <p class="mb-0">
+              ปี 2568 ภาค 1 มีอัตราพ้นสภาพ 6.62% สูงสุดในรอบข้อมูล 3 ปี และผลต่างระหว่างเทอมกลับไปสูง 3.54 จุดร้อยละ
+            </p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="insight-card warning-note">
+            <h5>ประเด็นที่ควรติดตาม</h5>
+            <p class="mb-0">
+              กลุ่ม “ไม่ได้ลงทะเบียนและขาดการติดต่อ” จำนวน 10 ราย ควรมีระบบ Early Warning / Contact Tracking ก่อนครบ 30 วัน
+            </p>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="insight-card opportunity">
+            <h5>แนวทางเชิงป้องกัน</h5>
+            <p class="mb-0">
+              สาเหตุลาออกอันดับ 1 คือผลการเรียน/ไม่ถนัดสาขา จึงควรเชื่อมข้อมูลผลการเรียน ที่ปรึกษา และกิจกรรมแนะแนวสาขาตั้งแต่ปี 1
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dataTable" class="mb-4">
+      <div class="data-card p-3 p-lg-4">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+          <div>
+            <h2 class="section-title h4 mb-1">ตารางข้อมูลแนวโน้ม</h2>
+            <p class="subtle mb-0">ข้อมูลนี้สามารถแก้ไขได้โดยอัปโหลด CSV ด้านบน</p>
+          </div>
+          <button class="btn btn-soft btn-sm" onclick="downloadCurrentCSV()">ดาวน์โหลดข้อมูลปัจจุบัน</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle" id="trendTable">
+            <thead>
+              <tr>
+                <th>ปีการศึกษา</th>
+                <th class="text-end">จำนวนเทอม 1</th>
+                <th class="text-end">จำนวนเทอม 2</th>
+                <th class="text-end">% เทอม 1</th>
+                <th class="text-end">% เทอม 2</th>
+                <th class="text-end">ผลต่าง</th>
+                <th>ข้อสังเกต</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <hr class="my-4">
+
+        <h3 class="section-title h5 mb-2">รูปแบบ CSV ที่รองรับ</h3>
+        <p class="subtle">แนะนำให้ใช้รูปแบบนี้ เพื่อวางข้อมูลปีต่อ ๆ ไปได้ทันที</p>
+<pre>Year,Term1Count,Term2Count,Term1Rate,Term2Rate
+2566,85,30,5.97,2.43
+2567,65,39,4.41,2.90
+2568,110,45,6.62,3.08</pre>
+      </div>
+    </section>
+
+    <footer class="text-center pt-2">
+      <p class="footer-note mb-1">
+        Dashboard นี้เป็น Single-page HTML สำหรับ GitHub Pages ใช้ Chart.js + Bootstrap + PapaParse ผ่าน CDN
+      </p>
+      <p class="footer-note mb-0">
+        แหล่งข้อมูลตั้งต้น: รายงานข้อมูลจำนวนนักศึกษาพ้นสภาพฯ ระดับปริญญาตรี วิทยาเขตภูเก็ต ภาค 2/2568 ข้อมูล ณ 15 มิถุนายน 2569
+      </p>
+    </footer>
+  </main>
+
+  <script>
+    Chart.register(ChartDataLabels);
+
+    const colors = {
+      teal: "#33c0ca",
+      blue: "#123c69",
+      navy: "#0b2545",
+      orange: "#ff9f1c",
+      pink: "#f72585",
+      red: "#e63946",
+      green: "#2a9d8f",
+      purple: "#6f42c1",
+      gray: "#8d99ae"
+    };
+
+    const defaultTrendData = [
+      { year: "2566", term1Count: 85, term2Count: 30, term1Rate: 5.97, term2Rate: 2.43 },
+      { year: "2567", term1Count: 65, term2Count: 39, term1Rate: 4.41, term2Rate: 2.90 },
+      { year: "2568", term1Count: 110, term2Count: 45, term1Rate: 6.62, term2Rate: 3.08 }
+    ];
+
+    const latestCauseData = [
+      { cause: "ได้รับอนุมัติให้ลาออก", count: 20 },
+      { cause: "ไม่ได้ลงทะเบียน/ไม่ได้รักษาสถานภาพ", count: 10 },
+      { cause: "ตกออกตามเกณฑ์ผลการเรียน", count: 15 }
+    ];
+
+    const facultyCauseData = [
+      { faculty: "คณะวิเทศศึกษา", resign: 12, noRegister: 2, academic: 5 },
+      { faculty: "วิทยาลัยการคอมพิวเตอร์", resign: 4, noRegister: 5, academic: 6 },
+      { faculty: "คณะการบริการและการท่องเที่ยว", resign: 3, noRegister: 3, academic: 4 },
+      { faculty: "คณะเทคโนโลยีและสิ่งแวดล้อม", resign: 1, noRegister: 0, academic: 0 }
+    ];
+
+    const resignationReasons = [
+      { reason: "ผลการเรียนไม่ดี/ไม่ถนัดสาขา", count: 9 },
+      { reason: "ศึกษาต่อสถาบันอื่น", count: 4 },
+      { reason: "ปัญหาค่าใช้จ่าย", count: 3 },
+      { reason: "ปัญหาครอบครัว", count: 2 },
+      { reason: "อื่น ๆ: ย้ายที่อยู่", count: 1 },
+      { reason: "ไม่ระบุ/รอตรวจสอบ", count: 1 }
+    ];
+
+    const academicCriteria = [
+      { criteria: "GPA < 1.25 ในสองภาคแรก", count: 8 },
+      { criteria: "GPA < 1.90 หลังรอพินิจครั้งที่ 2", count: 3 },
+      { criteria: "GPA < 2.00 หลังรอพินิจครั้งที่ 3", count: 2 },
+      { criteria: "GPA < 1.00 ในภาคแรก", count: 1 },
+      { criteria: "GPA < 1.50 หลังสองภาคแรก", count: 1 }
+    ];
+
+    let trendData = structuredClone(defaultTrendData);
+    const chartRefs = {};
+
+    function fmtPct(value){
+      return `${Number(value).toFixed(2)}%`;
+    }
+
+    function fmtPp(value){
+      return `${Number(value).toFixed(2)} จุดร้อยละ`;
+    }
+
+    function getGap(row){
+      return Number((row.term1Rate - row.term2Rate).toFixed(2));
+    }
+
+    function totalLatest(){
+      return latestCauseData.reduce((sum,d)=>sum+d.count,0);
+    }
+
+    function destroyChart(id){
+      if(chartRefs[id]){
+        chartRefs[id].destroy();
+        chartRefs[id] = null;
+      }
+    }
+
+    function commonOptions(extra = {}){
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { font: { family: "Sarabun", weight: "700" }, color: colors.navy } },
+          tooltip: {
+            titleFont: { family: "Sarabun" },
+            bodyFont: { family: "Sarabun" },
+            padding: 12,
+            cornerRadius: 12
+          },
+          datalabels: {
+            color: colors.navy,
+            anchor: "end",
+            align: "top",
+            clamp: true,
+            font: { family: "Sarabun", weight: "700", size: 11 },
+            formatter: (v) => v
+          }
+        },
+        scales: {
+          x: { ticks: { font: { family: "Sarabun", weight:"700" }, color: colors.navy }, grid: { display:false } },
+          y: { ticks: { font: { family: "Sarabun" }, color: "#65758b" }, grid: { color:"rgba(18,60,105,.08)" } }
+        },
+        ...extra
+      };
+    }
+
+    function renderRateTrend(){
+      destroyChart("rateTrendChart");
+      const ctx = document.getElementById("rateTrendChart");
+      chartRefs.rateTrendChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: trendData.map(d=>d.year),
+          datasets: [
+            {
+              label: "เทอม 1",
+              data: trendData.map(d=>d.term1Rate),
+              borderColor: colors.red,
+              backgroundColor: "rgba(230,57,70,.12)",
+              pointBackgroundColor: colors.red,
+              pointRadius: 5,
+              borderWidth: 3,
+              tension: .35,
+              fill: true
+            },
+            {
+              label: "เทอม 2",
+              data: trendData.map(d=>d.term2Rate),
+              borderColor: colors.teal,
+              backgroundColor: "rgba(51,192,202,.15)",
+              pointBackgroundColor: colors.teal,
+              pointRadius: 5,
+              borderWidth: 3,
+              tension: .35,
+              fill: true
+            }
+          ]
+        },
+        options: commonOptions({
+          plugins: {
+            ...commonOptions().plugins,
+            datalabels: { ...commonOptions().plugins.datalabels, formatter: v => fmtPct(v) }
+          },
+          scales: {
+            ...commonOptions().scales,
+            y: { ...commonOptions().scales.y, beginAtZero:true, title:{ display:true, text:"% การพ้นสภาพ", font:{family:"Sarabun", weight:"700"} } }
+          }
+        })
+      });
+    }
+
+    function renderGapChart(){
+      destroyChart("gapChart");
+      const gaps = trendData.map(getGap);
+      const ctx = document.getElementById("gapChart");
+      chartRefs.gapChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: trendData.map(d=>d.year),
+          datasets: [{
+            label: "ผลต่างเทอม 1 - เทอม 2",
+            data: gaps,
+            backgroundColor: gaps.map(v => v >= 3 ? colors.orange : colors.green),
+            borderRadius: 14
+          }]
+        },
+        options: commonOptions({
+          plugins: {
+            ...commonOptions().plugins,
+            legend: { display:false },
+            datalabels: { ...commonOptions().plugins.datalabels, formatter: v => fmtPct(v) }
+          },
+          scales: {
+            ...commonOptions().scales,
+            y: { ...commonOptions().scales.y, beginAtZero:true }
+          }
+        })
+      });
+    }
+
+    function renderCountChart(){
+      destroyChart("countChart");
+      const ctx = document.getElementById("countChart");
+      chartRefs.countChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: trendData.map(d=>d.year),
+          datasets: [
+            { label: "เทอม 1", data: trendData.map(d=>d.term1Count), backgroundColor: colors.blue, borderRadius: 14 },
+            { label: "เทอม 2", data: trendData.map(d=>d.term2Count), backgroundColor: colors.teal, borderRadius: 14 }
+          ]
+        },
+        options: commonOptions({
+          scales: {
+            ...commonOptions().scales,
+            y: { ...commonOptions().scales.y, beginAtZero:true, title:{ display:true, text:"จำนวนผู้พ้นสภาพ (ราย)", font:{family:"Sarabun", weight:"700"} } }
+          }
+        })
+      });
+    }
+
+    function renderCauseChart(){
+      destroyChart("causeChart");
+      const ctx = document.getElementById("causeChart");
+      chartRefs.causeChart = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: latestCauseData.map(d=>d.cause),
+          datasets: [{
+            data: latestCauseData.map(d=>d.count),
+            backgroundColor: [colors.orange, colors.pink, colors.blue],
+            borderWidth: 4,
+            borderColor: "#fff"
+          }]
+        },
+        options: {
+          responsive:true,
+          maintainAspectRatio:false,
+          cutout:"60%",
+          plugins: {
+            legend: {
+              position:"bottom",
+              labels:{ font:{ family:"Sarabun", weight:"700" }, color:colors.navy, boxWidth:14 }
+            },
+            tooltip:{
+              titleFont:{ family:"Sarabun" },
+              bodyFont:{ family:"Sarabun" },
+              callbacks:{
+                label:(ctx)=>{
+                  const value = ctx.raw;
+                  const pct = value / totalLatest() * 100;
+                  return ` ${ctx.label}: ${value} ราย (${pct.toFixed(1)}%)`;
+                }
+              }
+            },
+            datalabels:{
+              color:"#fff",
+              font:{ family:"Sarabun", weight:"800", size:13 },
+              formatter:(v)=>`${v} ราย`
+            }
+          }
+        }
+      });
+    }
+
+    function renderFacultyChart(){
+      destroyChart("facultyChart");
+      const ctx = document.getElementById("facultyChart");
+      chartRefs.facultyChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: facultyCauseData.map(d=>d.faculty),
+          datasets: [
+            { label: "ลาออก", data: facultyCauseData.map(d=>d.resign), backgroundColor: colors.orange, borderRadius: 10 },
+            { label: "ไม่ได้ลงทะเบียน", data: facultyCauseData.map(d=>d.noRegister), backgroundColor: colors.pink, borderRadius: 10 },
+            { label: "ตกออก", data: facultyCauseData.map(d=>d.academic), backgroundColor: colors.blue, borderRadius: 10 }
+          ]
+        },
+        options: commonOptions({
+          plugins: { ...commonOptions().plugins, datalabels:{ display:false } },
+          scales: {
+            x: { stacked:true, ticks:{ font:{family:"Sarabun", weight:"700"}, color:colors.navy }, grid:{display:false} },
+            y: { stacked:true, beginAtZero:true, ticks:{ font:{family:"Sarabun"}, color:"#65758b" }, grid:{color:"rgba(18,60,105,.08)"} }
+          }
+        })
+      });
+    }
+
+    function renderResignChart(){
+      destroyChart("resignChart");
+      const ctx = document.getElementById("resignChart");
+      chartRefs.resignChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: resignationReasons.map(d=>d.reason),
+          datasets: [{
+            label: "จำนวน",
+            data: resignationReasons.map(d=>d.count),
+            backgroundColor: colors.orange,
+            borderRadius: 12
+          }]
+        },
+        options: commonOptions({
+          indexAxis:"y",
+          plugins: { ...commonOptions().plugins, legend:{display:false} },
+          scales: {
+            x: { beginAtZero:true, ticks:{precision:0, font:{family:"Sarabun"}}, grid:{color:"rgba(18,60,105,.08)"} },
+            y: { ticks:{font:{family:"Sarabun", weight:"700"}, color:colors.navy}, grid:{display:false} }
+          }
+        })
+      });
+    }
+
+    function renderAcademicChart(){
+      destroyChart("academicChart");
+      const ctx = document.getElementById("academicChart");
+      chartRefs.academicChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: academicCriteria.map(d=>d.criteria),
+          datasets: [{
+            label: "จำนวน",
+            data: academicCriteria.map(d=>d.count),
+            backgroundColor: colors.blue,
+            borderRadius: 12
+          }]
+        },
+        options: commonOptions({
+          indexAxis:"y",
+          plugins: { ...commonOptions().plugins, legend:{display:false} },
+          scales: {
+            x: { beginAtZero:true, ticks:{precision:0, font:{family:"Sarabun"}}, grid:{color:"rgba(18,60,105,.08)"} },
+            y: { ticks:{font:{family:"Sarabun", weight:"700"}, color:colors.navy}, grid:{display:false} }
+          }
+        })
+      });
+    }
+
+    function renderTable(){
+      const tbody = document.querySelector("#trendTable tbody");
+      tbody.innerHTML = "";
+      trendData.forEach((d, i) => {
+        const gap = getGap(d);
+        const prev = i > 0 ? trendData[i-1] : null;
+        let note = "ปีฐานเปรียบเทียบ";
+        if(prev){
+          const t1Change = d.term1Rate - prev.term1Rate;
+          const t2Change = d.term2Rate - prev.term2Rate;
+          note = `เทอม 1 ${t1Change >= 0 ? "เพิ่ม" : "ลด"} ${Math.abs(t1Change).toFixed(2)} จุด | เทอม 2 ${t2Change >= 0 ? "เพิ่ม" : "ลด"} ${Math.abs(t2Change).toFixed(2)} จุด`;
+        }
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${d.year}</strong></td>
+          <td class="text-end">${d.term1Count.toLocaleString("th-TH")}</td>
+          <td class="text-end">${d.term2Count.toLocaleString("th-TH")}</td>
+          <td class="text-end">${fmtPct(d.term1Rate)}</td>
+          <td class="text-end">${fmtPct(d.term2Rate)}</td>
+          <td class="text-end"><span class="pill">${fmtPct(gap)}</span></td>
+          <td>${note}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderKPIs(){
+      const latest = trendData[trendData.length - 1];
+      const prev = trendData[trendData.length - 2];
+      const allRates = trendData.flatMap(d => [
+        {year:d.year, term:"ภาค 1", rate:d.term1Rate},
+        {year:d.year, term:"ภาค 2", rate:d.term2Rate}
+      ]);
+      const peak = allRates.reduce((max, d) => d.rate > max.rate ? d : max, allRates[0]);
+      const latestT2Delta = prev ? latest.term2Rate - prev.term2Rate : 0;
+
+      document.getElementById("kpiCurrentTotal").textContent = `${totalLatest()} ราย`;
+      document.getElementById("kpiLatestRate").textContent = fmtPct(latest.term2Rate);
+      document.getElementById("kpiLatestRateNote").textContent =
+        prev ? `${latestT2Delta >= 0 ? "เพิ่ม" : "ลด"}จาก 2/${prev.year} จำนวน ${Math.abs(latestT2Delta).toFixed(2)} จุดร้อยละ` : "ข้อมูลปีล่าสุด";
+      document.getElementById("kpiPeak").textContent = fmtPct(peak.rate);
+      document.getElementById("kpiPeakNote").textContent = `${peak.term}/${peak.year} สูงที่สุดในชุดข้อมูล`;
+    }
+
+    function renderAutoInsights(){
+      const box = document.getElementById("autoInsights");
+      const avgT1 = trendData.reduce((s,d)=>s+d.term1Rate,0) / trendData.length;
+      const avgT2 = trendData.reduce((s,d)=>s+d.term2Rate,0) / trendData.length;
+      const latest = trendData[trendData.length-1];
+      const prev = trendData[trendData.length-2];
+      const latestGap = getGap(latest);
+      const topCause = latestCauseData.reduce((max,d)=>d.count>max.count?d:max,latestCauseData[0]);
+      const topFaculty = facultyCauseData
+        .map(d=>({faculty:d.faculty,total:d.resign+d.noRegister+d.academic}))
+        .sort((a,b)=>b.total-a.total)[0];
+
+      let trendText = "ยังไม่มีปีเปรียบเทียบก่อนหน้า";
+      if(prev){
+        const changeT1 = latest.term1Rate - prev.term1Rate;
+        const changeT2 = latest.term2Rate - prev.term2Rate;
+        trendText = `ปี ${latest.year} เทอม 1 ${changeT1 >= 0 ? "เพิ่มขึ้น" : "ลดลง"} ${Math.abs(changeT1).toFixed(2)} จุดร้อยละ และเทอม 2 ${changeT2 >= 0 ? "เพิ่มขึ้น" : "ลดลง"} ${Math.abs(changeT2).toFixed(2)} จุดร้อยละ เมื่อเทียบกับปี ${prev.year}`;
+      }
+
+      box.innerHTML = `
+        <div class="p-3 rounded-4 bg-light">
+          <div class="fw-bold text-primary mb-1">1) Pattern ชัดเจน</div>
+          <div>ค่าเฉลี่ยเทอม 1 อยู่ที่ <strong>${fmtPct(avgT1)}</strong> สูงกว่าเทอม 2 ที่ <strong>${fmtPct(avgT2)}</strong> สะท้อนว่าช่วงต้นปีการศึกษาคือจุดเฝ้าระวังหลัก</div>
+        </div>
+        <div class="p-3 rounded-4 bg-light">
+          <div class="fw-bold text-primary mb-1">2) แนวโน้มล่าสุด</div>
+          <div>${trendText} โดยผลต่างล่าสุดระหว่างเทอม 1 และเทอม 2 เท่ากับ <strong>${fmtPp(latestGap)}</strong></div>
+        </div>
+        <div class="p-3 rounded-4 bg-light">
+          <div class="fw-bold text-primary mb-1">3) สาเหตุหลักภาค 2/2568</div>
+          <div>สาเหตุที่พบมากที่สุดคือ <strong>${topCause.cause}</strong> จำนวน <strong>${topCause.count} ราย</strong> คิดเป็น <strong>${(topCause.count/totalLatest()*100).toFixed(1)}%</strong> ของผู้พ้นสภาพภาค 2/2568</div>
+        </div>
+        <div class="p-3 rounded-4 bg-light">
+          <div class="fw-bold text-primary mb-1">4) หน่วยงานที่ควรติดตามก่อน</div>
+          <div><strong>${topFaculty.faculty}</strong> มียอดรวมสูงสุดในภาค 2/2568 จำนวน <strong>${topFaculty.total} ราย</strong> ควรเจาะมาตรการตามสาเหตุย่อยของหน่วยงาน</div>
+        </div>
+      `;
+    }
+
+    function renderAll(){
+      trendData = trendData
+        .filter(d => d.year && !Number.isNaN(d.term1Rate) && !Number.isNaN(d.term2Rate))
+        .sort((a,b)=>Number(a.year)-Number(b.year));
+
+      renderKPIs();
+      renderRateTrend();
+      renderGapChart();
+      renderCountChart();
+      renderCauseChart();
+      renderFacultyChart();
+      renderResignChart();
+      renderAcademicChart();
+      renderTable();
+      renderAutoInsights();
+    }
+
+    function normalizeKey(key){
+      return String(key || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g,"")
+        .replace(/[_\-.%/]/g,"");
+    }
+
+    function valueBy(row, candidates){
+      const keys = Object.keys(row);
+      for(const c of candidates){
+        const target = normalizeKey(c);
+        const found = keys.find(k => normalizeKey(k) === target);
+        if(found !== undefined) return row[found];
+      }
+      return undefined;
+    }
+
+    function parseNumber(value){
+      if(value === undefined || value === null) return NaN;
+      const cleaned = String(value).replace("%","").replace("+","").replace(",","").trim();
+      return Number(cleaned);
+    }
+
+    function parseCSVRows(rows){
+      const cleanedRows = rows.filter(r => Object.values(r).some(v => String(v ?? "").trim() !== ""));
+      if(cleanedRows.length === 0) return [];
+
+      const first = cleanedRows[0];
+      const hasLongTerm = valueBy(first, ["Term","ภาคการศึกษา","เทอม"]) !== undefined;
+
+      if(hasLongTerm){
+        const map = {};
+        cleanedRows.forEach(row => {
+          const year = String(valueBy(row, ["Year","ปีการศึกษา","ปี"]) || "").trim();
+          const termRaw = String(valueBy(row, ["Term","ภาคการศึกษา","เทอม"]) || "").trim();
+          const count = parseNumber(valueBy(row, ["Count","จำนวน","จำนวนคน"]));
+          const rate = parseNumber(valueBy(row, ["Rate","Percent","%","อัตรา","เปอร์เซ็นต์"]));
+          if(!year) return;
+          if(!map[year]) map[year] = { year, term1Count:0, term2Count:0, term1Rate:0, term2Rate:0 };
+          if(termRaw.includes("1")){
+            map[year].term1Count = count;
+            map[year].term1Rate = rate;
+          }else if(termRaw.includes("2")){
+            map[year].term2Count = count;
+            map[year].term2Rate = rate;
+          }
+        });
+        return Object.values(map);
+      }
+
+      return cleanedRows.map(row => ({
+        year: String(valueBy(row, ["Year","ปีการศึกษา","ปี"]) || "").trim(),
+        term1Count: parseNumber(valueBy(row, ["Term1Count","CountTerm1","จำนวนเทอม1","จำนวนภาค1","จำนวน_เทอม_1"])),
+        term2Count: parseNumber(valueBy(row, ["Term2Count","CountTerm2","จำนวนเทอม2","จำนวนภาค2","จำนวน_เทอม_2"])),
+        term1Rate: parseNumber(valueBy(row, ["Term1Rate","RateTerm1","%เทอม1","เปอร์เซ็นต์เทอม1","อัตราเทอม1","%ภาค1"])),
+        term2Rate: parseNumber(valueBy(row, ["Term2Rate","RateTerm2","%เทอม2","เปอร์เซ็นต์เทอม2","อัตราเทอม2","%ภาค2"]))
+      }));
+    }
+
+    document.getElementById("csvFile").addEventListener("change", function(evt){
+      const file = evt.target.files[0];
+      if(!file) return;
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results){
+          const parsed = parseCSVRows(results.data);
+          const valid = parsed.filter(d =>
+            d.year &&
+            Number.isFinite(d.term1Count) &&
+            Number.isFinite(d.term2Count) &&
+            Number.isFinite(d.term1Rate) &&
+            Number.isFinite(d.term2Rate)
+          );
+
+          if(valid.length === 0){
+            alert("ไม่พบข้อมูลที่อ่านได้ กรุณาตรวจสอบชื่อคอลัมน์ CSV ตามตัวอย่าง");
+            return;
+          }
+
+          trendData = valid;
+          renderAll();
+        },
+        error: function(err){
+          alert("อ่านไฟล์ไม่สำเร็จ: " + err.message);
+        }
+      });
+    });
+
+    function resetData(){
+      trendData = structuredClone(defaultTrendData);
+      document.getElementById("csvFile").value = "";
+      renderAll();
+    }
+
+    function toCSV(data){
+      const header = "Year,Term1Count,Term2Count,Term1Rate,Term2Rate\n";
+      const body = data.map(d => `${d.year},${d.term1Count},${d.term2Count},${d.term1Rate},${d.term2Rate}`).join("\n");
+      return header + body;
+    }
+
+    function downloadBlob(filename, content){
+      const blob = new Blob([content], { type:"text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadSampleCSV(){
+      downloadBlob("dropout_trend_sample.csv", toCSV(defaultTrendData));
+    }
+
+    function downloadCurrentCSV(){
+      downloadBlob("dropout_trend_current.csv", toCSV(trendData));
+    }
+
+    function scrollToSection(id){
+      document.querySelectorAll(".tab-btn").forEach(btn=>btn.classList.remove("active"));
+      if(id === "executive") document.getElementById("btnExecutive").classList.add("active");
+      if(id === "causes") document.getElementById("btnCauses").classList.add("active");
+      if(id === "dataTable") document.getElementById("btnData").classList.add("active");
+      document.getElementById(id).scrollIntoView({ behavior:"smooth", block:"start" });
+    }
+
+    renderAll();
+  </script>
+</body>
+</html>
